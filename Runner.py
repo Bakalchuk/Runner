@@ -80,28 +80,66 @@ def generateRunCmd(application,tree,mode,flags):
     return cmd
 
 
+def frame():
+    # get all the inputs from the GUI
+    entries = {}
+
+    for d in [app.getAllInputs(),app.getAllEntries()]:
+        for k,v in d.iteritems():
+            entries[k] = v
+
+    if(frame.entries == entries):
+        return
+
+    # set the compilation cmd
+    compileCmd = generateCompileCmd(entries["Application"],entries["Tree"],entries["Mode"])
+    app.clearAllTextAreas(callFunction=True)
+    app.setTextArea("CompileCmd", compileCmd, end=False, callFunction=True)
+
+    # show the relevant running options
+    if entries["Application"] == "unit test":
+        app.raiseFrame("unit_test_frame")
+    elif entries["Application"] == "SRD":
+        app.raiseFrame("SRD_frame")
+    elif entries["Application"] == "PC":
+        app.raiseFrame("PC_frame")
 
 
-app=gui()
-app.setTitle("Runner")
+    # set the run cmd
+    pass
 
-app.setFont(20)
-app.addLabelOptionBox("Application", ["unit test","SRD","PC"])
-app.addLabelOptionBox("Tree", ["I410","4.14.1"])
-
-app.addRadioButton("Mode", "Release")
-app.addRadioButton("Mode", "Debug")
-
-
-def make(btn):
-    cmd = generateCompileCmd(app.getOptionBox("Application"),app.getOptionBox("Tree"),app.getRadioButton("Mode"))
-    app.setTextArea("Compile", cmd, end=False, callFunction=False)
-
-app.addButton("Make",make)
-
-app.setFont(12)
-app.addScrolledTextArea("Compile",text=None)
+    frame.entries = entries
+frame.entries = None
 
 
 
-app.go()
+with gui("Runner","600x400") as app:
+    with app.frame("State"):
+        app.setFont(20)
+        app.addOptionBox("Tree", ["I410","4.14.1"],app.getRow(),0,2)
+        app.addOptionBox("Application", ["unit test","SRD","PC"],app.getRow(),0,2)
+        app.addRadioButton("Mode", "Release",app.getRow(),0)
+        app.addRadioButton("Mode", "Debug","p",1)
+
+    with app.frame("CompileFrame",row=0,column=1):
+        app.addLabel("CompileLabel","Compile")
+        app.addScrolledTextArea("CompileCmd")
+
+
+    app.setFont(14)
+    app.addLabel("RunLabel", "Run",row=1,column=1)
+    with app.frame("unit_test_frame",row=2,column=1):
+        app.addLabelEntry("clipexts path")
+        app.addLabelEntry("pls path")
+        app.addLabelEntry("pls")
+    with app.frame("SRD_frame",row=2,column=1):
+        app.addLabelEntry("clip SRD")
+    with app.frame("PC_frame",row=2,column=1):
+        app.addLabelEntry("clip PC")
+        app.addLabelEntry("etc")
+        app.addLabelEntry("logs")
+
+
+    app.registerEvent(frame)
+    app.setPollTime(250)
+    app.go()
