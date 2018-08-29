@@ -2,7 +2,7 @@ from appJar import gui
 
 def generateCompileCmd(application,tree,mode):
     cmd = ""
-    if application == "unit test":
+    if application == "Unit test":
         if tree == "I410":
             cmd += "makeuo "
         elif tree == "4.14.1":
@@ -81,6 +81,14 @@ def generateRunCmd(application,tree,mode,flags):
 
 
 def frame():
+
+    state = {"Tree":app.getMenuRadioButton("Tree","Tree"),
+             "Application": app.getMenuRadioButton("Application", "Application"),
+             "Mode": app.getMenuRadioButton("Mode", "Mode")
+             }
+
+
+
     # get all the inputs from the GUI
     entries = {}
 
@@ -88,56 +96,87 @@ def frame():
         for k,v in d.iteritems():
             entries[k] = v
 
-    if(frame.entries == entries):
+    if(frame.state == state and frame.entries == entries):
         return
 
+    frame.entries = entries
+    frame.state = state
+
     # set the compilation cmd
-    compileCmd = generateCompileCmd(entries["Application"],entries["Tree"],entries["Mode"])
-    app.clearAllTextAreas(callFunction=True)
-    app.setTextArea("CompileCmd", compileCmd, end=False, callFunction=True)
+    compileCmd = generateCompileCmd(state["Application"],state["Tree"],state["Mode"])
+    app.setEntry("CompileCmd", compileCmd)
 
     # show the relevant running options
-    if entries["Application"] == "unit test":
+    if state["Application"] == "unit test":
         app.raiseFrame("unit_test_frame")
-    elif entries["Application"] == "SRD":
+    elif state["Application"] == "SRD":
         app.raiseFrame("SRD_frame")
-    elif entries["Application"] == "PC":
+    elif state["Application"] == "PC":
         app.raiseFrame("PC_frame")
+
+
+    if state["Application"] == "unit test" and state["Tree"] == "4.14.1":
+        if app.getCheckBox("REM: enabled"):
+            app.enableRadioButton("Rem: enabled options")
+        else:
+            app.disableRadioButton("Rem: enabled options")
 
 
     # set the run cmd
     pass
 
-    frame.entries = entries
+frame.state = None
 frame.entries = None
 
 
 
 with gui("Runner","600x400") as app:
-    with app.frame("State"):
-        app.setFont(20)
-        app.addOptionBox("Tree", ["I410","4.14.1"],app.getRow(),0,2)
-        app.addOptionBox("Application", ["unit test","SRD","PC"],app.getRow(),0,2)
-        app.addRadioButton("Mode", "Release",app.getRow(),0)
-        app.addRadioButton("Mode", "Debug","p",1)
+    # control the state
+    app.addMenuRadioButton("Tree","Tree","4.14.1")
+    app.addMenuRadioButton("Tree", "Tree", "I410")
+    app.addMenuRadioButton("Application", "Application", "Unit test")
+    app.addMenuRadioButton("Application", "Application", "SRD")
+    app.addMenuRadioButton("Application", "Application", "PC")
+    app.addMenuRadioButton("Mode", "Mode", "Release")
+    app.addMenuRadioButton("Mode", "Mode", "Debug")
 
-    with app.frame("CompileFrame",row=0,column=1):
-        app.addLabel("CompileLabel","Compile")
-        app.addScrolledTextArea("CompileCmd")
+    app.addLabelEntry("CompileCmd")
+    app.setLabel("CompileCmd","Compilation cmd: ")
 
 
     app.setFont(14)
-    app.addLabel("RunLabel", "Run",row=1,column=1)
-    with app.frame("unit_test_frame",row=2,column=1):
+    app.addLabel("RunLabel", "Run")
+    with app.frame("unit_test_frame",row=2):
         app.addLabelEntry("clipexts path")
         app.addLabelEntry("pls path")
         app.addLabelEntry("pls")
-    with app.frame("SRD_frame",row=2,column=1):
-        app.addLabelEntry("clip SRD")
-    with app.frame("PC_frame",row=2,column=1):
-        app.addLabelEntry("clip PC")
+    with app.frame("SRD_frame",row=2):
+        app.addLabelEntry("clip1")
+    with app.frame("PC_frame",row=2):
+        app.addLabelEntry("clip2")
         app.addLabelEntry("etc")
         app.addLabelEntry("logs")
+
+    app.setLabel("clip1", "clip")
+    app.setLabel("clip2", "clip")
+
+    # with app.frame("unit_test_4.14.1_flags",row=3):
+    #     app.addCheckBox("-sCompressedUT")
+    #     app.setCheckBox("-sCompressedUT")
+    #     app.addCheckBox("-sframe-verbose")
+    #     app.setCheckBox("-sframe-verbose")
+    #     app.addCheckBox("-sMEMemUnitTestDebug")
+    #     app.setCheckBox("-sMEMemUnitTestDebug")
+    #
+    #     app.addCheckBox("REM:")
+    #     app.setCheckBox("REM:")
+    #     app.addNamedCheckBox("enabled","REM: enabled")
+    #     app.setCheckBox("REM: enabled")
+    #     app.addRadioButton("Rem: enabled options","true")
+    #     app.addRadioButton("Rem: enabled options", "false")
+
+
+
 
 
     app.registerEvent(frame)
