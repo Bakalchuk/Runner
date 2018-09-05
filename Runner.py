@@ -40,45 +40,53 @@ def generateCompileCmd(application,tree,mode):
     return cmd
 
 
-def generateRunCmd(application,tree,mode):
+def generateRunCmd(application,tree,mode,cextPath,pls,etcDir,log):
     cmd = ""
     if application == "UnitTest":
         if tree == "I410":
-            cmd += "./meMem_unitTest64"
+            cmd = "./meMem_unitTest64"
         elif tree == "4.14.1":
-            cmd += "./meMem_unitTest"
+            cmd = "./meMem_unitTest"
 
-        if mode == "Release":
-            cmd += " "
-        elif mode == "Debug":
+        if mode == "Debug":
             cmd += "d "
+
+        base = "{}/{}/{}".format(cextPath,pls,pls)
+        cmd += " --base={} -sClipName={} :".format(base,pls)
+
     elif application == "SRD":
-        cmd += "make "
         if tree == "I410":
-            cmd += "SRD_p3 "
+            pass
         elif tree == "4.14.1":
-            cmd += "SRD_s4 "
+            if mode == "Release":
+                cmd = "./GV_SRD --library ./libSRD.so"
+            if mode == "Debug":
+                cmd = "./GV_SRDd --library ./libSRDd.so"
 
-        cmd += "MODE="
-        if mode == "Release":
-            cmd += "rel"
-        elif mode == "Debug":
-            cmd += "dbg"
+        cmd += " Clip: --clip {} :".format(pls)
+
+
+
     elif application == "PC":
-        cmd += "make "
         if tree == "I410":
-            cmd += "PC_p3 "
+            pass
         elif tree == "4.14.1":
-            cmd += "PC_s4 "
+            if mode == "Release":
+                cmd = "./PC_PC GVP: --library ./libPC.so Clip: --clip "
+            else:
+                cmd = "./PC_PCd GVP: --library ./libPCd.so Clip: --clip "
 
-        cmd += "MODE="
-        if mode == "Release":
-            cmd += "rel"
-        elif mode == "Debug":
-            cmd += "dbg"
+            cmd += "{} --etcDir {} Logging: --inDir {} :".format(pls,etcDir,log)
+
 
     return cmd
 
+def getStateStr():
+    application = app.getMenuRadioButton("Application", "Application")
+    tree = app.getMenuRadioButton("Tree", "Tree")
+
+    stateStr = tree + "_" + application
+    return stateStr
 
 def stateChanged():
     application = app.getMenuRadioButton("Application", "Application")
@@ -90,28 +98,50 @@ def stateChanged():
     app.setEntry("CompileCmd", compileCmd)
 
     applicationFrame = application + "_frame"
-    stateStr = tree + "_" + application
+    stateStr = getStateStr()
 
     # show the relevant running options
     app.raiseFrame(applicationFrame)
     app.raiseFrame(stateStr)
 
+
+
+
+
+
+
+def fillRunCmd():
+    application = app.getMenuRadioButton("Application", "Application")
+    tree = app.getMenuRadioButton("Tree","Tree")
+    mode = app.getMenuRadioButton("Mode", "Mode")
+
+    cextPath = app.getEntry("cextPathEntry")
+    pls = app.getEntry("plsEntry")
+    etcDir = app.getEntry("etcDirEntry")
+    log = app.getEntry("logEntry")
+
+    stateStr = getStateStr()
     stateSections = sections[stateStr]
-
-    flagsStr = ""
+    cmd = generateRunCmd(application, tree, mode,cextPath=cextPath,pls=pls,etcDir=etcDir,log=log)
     for section in stateSections:
-        flagsStr += " {}:".format(section._name)
+        sectionStr = " {}:".format(section._name)
+        addSection = False
         for flag in section._flags:
-            flagsStr += " {}".format(flag._name)
-            if flag._type == "input":
-                val = app.getEntry(flag._id+"_entry")
-                flagsStr += "={}".format(val)
-            elif flag._type == "choice":
-                val = app.getOptionBox(flag._id+"_optionBox")
-                flagsStr += "={}".format(val)
+            if app.getCheckBox(flag._id):
+                addSection = True
+                sectionStr += " {}".format(flag._name)
+                if flag._type == "input":
+                    val = app.getEntry(flag._id+"_entry")
+                    if val == "" and flag._defaultVal is not None:
+                        val = flag._defaultVal
+                        sectionStr += "={}".format(val)
+                elif flag._type == "choice":
+                    val = app.getOptionBox(flag._id+"_optionBox")
+                    sectionStr += "={}".format(val)
+        if addSection:
+            cmd += sectionStr
 
-    runCmd = generateRunCmd(application, tree, mode) + flagsStr
-    print runCmd
+    app.setEntry("RunCmd",cmd)
 
 
 def toggleEntry(flagId):
@@ -234,7 +264,7 @@ sections = {
 }
 
 
-with gui("Runner","600x400") as app:
+with gui("Runner","1000x500") as app:
     # control the state
     app.addMenuRadioButton("Tree","Tree","4.14.1",stateChanged)
     app.addMenuRadioButton("Tree", "Tree", "I410",stateChanged)
@@ -260,18 +290,25 @@ with gui("Runner","600x400") as app:
 
     clipFrameRow = 4
     with app.frame("UnitTest_frame",row=clipFrameRow):
-        app.addLabelEntry("clipexts path")
-        app.addLabelEntry("pls path")
-        app.addLabelEntry("pls")
+        app.addLabelEntry("cextPathEntry")
+        app.addLabelEntry("plsEntry")
     with app.frame("SRD_frame",row=clipFrameRow):
-        app.addLabelEntry("clip1")
+        app.addLabelEntry("clipSRDEntry")
     with app.frame("PC_frame",row=clipFrameRow):
-        app.addLabelEntry("clip2")
-        app.addLabelEntry("etc")
-        app.addLabelEntry("logs")
+        app.addLabelEntry("clipPCEntry")
+        app.addLabelEntry("etcDirEntry")
+        app.addLabelEntry("logEntry")
 
-    app.setLabel("clip1", "clip")
-    app.setLabel("clip2", "clip")
+    app.setLabel("cextPathEntry", "cext path")
+    app.setLabel("plsEntry", "pls")
+
+    app.setLabel("clipSRDEntry", "clip")
+    app.setLabel("clipPCEntry", "clip")
+
+    app.setLabel("etcDirEntry", "etc dir")
+    app.setLabel("logEntry", "log")
+
+
 
     app.addHorizontalSeparator()
 
@@ -286,4 +323,8 @@ with gui("Runner","600x400") as app:
 
 
     stateChanged()
+    fillRunCmd()
+
+    app.registerEvent(fillRunCmd)
+    app.setPollTime(250)
     app.go()
