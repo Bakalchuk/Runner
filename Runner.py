@@ -2,7 +2,7 @@ from appJar import gui
 
 def generateCompileCmd(application,tree,mode):
     cmd = ""
-    if application == "Unit test":
+    if application == "UnitTest":
         if tree == "I410":
             cmd += "makeuo "
         elif tree == "4.14.1":
@@ -40,9 +40,9 @@ def generateCompileCmd(application,tree,mode):
     return cmd
 
 
-def generateRunCmd(application,tree,mode,flags):
+def generateRunCmd(application,tree,mode):
     cmd = ""
-    if application == "unit test":
+    if application == "UnitTest":
         if tree == "I410":
             cmd += "./meMem_unitTest64"
         elif tree == "4.14.1":
@@ -80,79 +80,192 @@ def generateRunCmd(application,tree,mode,flags):
     return cmd
 
 
-def frame():
-
-    state = {"Tree":app.getMenuRadioButton("Tree","Tree"),
-             "Application": app.getMenuRadioButton("Application", "Application"),
-             "Mode": app.getMenuRadioButton("Mode", "Mode")
-             }
-
-
-
-    # get all the inputs from the GUI
-    entries = {}
-
-    for d in [app.getAllInputs(),app.getAllEntries()]:
-        for k,v in d.iteritems():
-            entries[k] = v
-
-    if(frame.state == state and frame.entries == entries):
-        return
-
-    frame.entries = entries
-    frame.state = state
+def stateChanged():
+    application = app.getMenuRadioButton("Application", "Application")
+    tree = app.getMenuRadioButton("Tree","Tree")
+    mode = app.getMenuRadioButton("Mode", "Mode")
 
     # set the compilation cmd
-    compileCmd = generateCompileCmd(state["Application"],state["Tree"],state["Mode"])
+    compileCmd = generateCompileCmd(application,tree,mode)
     app.setEntry("CompileCmd", compileCmd)
 
+    applicationFrame = application + "_frame"
+    stateStr = tree + "_" + application
+
     # show the relevant running options
-    if state["Application"] == "unit test":
-        app.raiseFrame("unit_test_frame")
-    elif state["Application"] == "SRD":
-        app.raiseFrame("SRD_frame")
-    elif state["Application"] == "PC":
-        app.raiseFrame("PC_frame")
+    app.raiseFrame(applicationFrame)
+    app.raiseFrame(stateStr)
+
+    stateSections = sections[stateStr]
+
+    flagsStr = ""
+    for section in stateSections:
+        flagsStr += " {}:".format(section._name)
+        for flag in section._flags:
+            flagsStr += " {}".format(flag._name)
+            if flag._type == "input":
+                val = app.getEntry(flag._id+"_entry")
+                flagsStr += "={}".format(val)
+            elif flag._type == "choice":
+                val = app.getOptionBox(flag._id+"_optionBox")
+                flagsStr += "={}".format(val)
+
+    runCmd = generateRunCmd(application, tree, mode) + flagsStr
+    print runCmd
 
 
-    if state["Application"] == "unit test" and state["Tree"] == "4.14.1":
-        if app.getCheckBox("REM: enabled"):
-            app.enableRadioButton("Rem: enabled options")
-        else:
-            app.disableRadioButton("Rem: enabled options")
+def toggleEntry(flagId):
+    if app.getCheckBox(flagId):
+        app.showEntry(flagId + "_entry")
+    else:
+        app.setEntry(flagId + "_entry", "")
+        app.hideEntry(flagId + "_entry")
+
+def toggleOptionBox(flagId):
+    if app.getCheckBox(flagId):
+        app.showOptionBox(flagId + "_optionBox")
+    else:
+        app.hideOptionBox(flagId + "_optionBox")
 
 
-    # set the run cmd
-    pass
 
-frame.state = None
-frame.entries = None
 
+
+class Flag:
+    def __init__(self,name,type,defaultAdd=False,defaultVal=None,possibleVals=None):
+        self._name = name
+        self._type = type
+        self._defaultAdd = defaultAdd
+        self._defaultVal = defaultVal
+        self._id = -1
+        self._possibleVals = possibleVals
+
+    def add(self,id):
+        self._id = id
+        app.addNamedCheckBox(self._name, id)
+        app.setCheckBox(id,ticked=self._defaultAdd)
+
+        if self._type == "void":
+            if self._defaultVal:
+                app.setCheckBox(id)
+        elif self._type == "input":
+            app.addEntry(id + "_entry")
+            app.setCheckBoxChangeFunction(id, toggleEntry)
+            toggleEntry(id)
+            if self._defaultVal != None:
+                app.setEntryDefault(id + "_entry",self._defaultVal)
+        elif self._type == "choice":
+            app.addOptionBox(id+"_optionBox",self._possibleVals)
+            app.setCheckBoxChangeFunction(id, toggleOptionBox)
+            toggleOptionBox(id)
+            if self._defaultVal:
+                app.setOptionBox(id+"_optionBox",self._defaultVal)
+
+
+class Section:
+    def __init__(self,name,flags):
+        self._name = name
+        self._flags = flags
+        self._id = -1
+
+
+def getFlagByID(id):
+    for sectionState,sectionsList in sections.iteritems():
+        for section in sectionsList:
+            for flag in section._flags:
+                if flag._id == id:
+                    return flag
+    return None
+
+
+
+
+
+def addSection(app,section):
+    section._id = str(addSection._sectionId)
+    with app.toggleFrame(section._id):
+        for flag in section._flags:
+            flagId = str(section._id) + "_" + str(addSection._flagId)
+            flag.add(flagId)
+            addSection._flagId += 1
+    app.setToggleFrameText(section._id, section._name)
+    addSection._sectionId += 1
+
+addSection._sectionId = 0
+addSection._flagId = 0
+
+
+
+sections = {
+    "4.14.1_UnitTest":
+        [
+            Section("Section1",[
+                Flag("voidFlag","void")
+                , Flag("inputFlag","input")
+                , Flag("inputFlagDefVal","input",defaultVal=3)
+                , Flag("choiceFlag","choice",possibleVals=["val1","val2","val3"])
+                , Flag("choiceFlagDefVal","choice",possibleVals=["val1","val2","val3"],defaultVal="val3")
+            ]),
+            Section("Section2",[
+                Flag("f", "void")
+            ])
+        ]
+
+    ,"4.14.1_SRD":
+        [
+        ]
+    , "4.14.1_PC":
+        [
+        ]
+
+    ,"I410_UnitTest":
+        [
+        ]
+
+    , "I410_SRD":
+        [
+        ]
+    , "I410_PC":
+        [
+        ]
+
+
+
+}
 
 
 with gui("Runner","600x400") as app:
     # control the state
-    app.addMenuRadioButton("Tree","Tree","4.14.1")
-    app.addMenuRadioButton("Tree", "Tree", "I410")
-    app.addMenuRadioButton("Application", "Application", "Unit test")
-    app.addMenuRadioButton("Application", "Application", "SRD")
-    app.addMenuRadioButton("Application", "Application", "PC")
-    app.addMenuRadioButton("Mode", "Mode", "Release")
-    app.addMenuRadioButton("Mode", "Mode", "Debug")
+    app.addMenuRadioButton("Tree","Tree","4.14.1",stateChanged)
+    app.addMenuRadioButton("Tree", "Tree", "I410",stateChanged)
+    app.addMenuRadioButton("Application","Application","UnitTest",stateChanged)
+    app.addMenuRadioButton("Application","Application","SRD",stateChanged)
+    app.addMenuRadioButton("Application","Application","PC",stateChanged)
+    app.addMenuRadioButton("Mode", "Mode", "Release",stateChanged)
+    app.addMenuRadioButton("Mode", "Mode", "Debug",stateChanged)
 
     app.addLabelEntry("CompileCmd")
     app.setLabel("CompileCmd","Compilation cmd: ")
+    app.addLabelEntry("RunCmd")
+    app.setLabel("RunCmd", "Running cmd: ")
 
 
+
+
+
+    app.addHorizontalSeparator()
     app.setFont(14)
-    app.addLabel("RunLabel", "Run")
-    with app.frame("unit_test_frame",row=2):
+    app.addLabel("SetPathsLabel", "Set paths")
+
+
+    clipFrameRow = 4
+    with app.frame("UnitTest_frame",row=clipFrameRow):
         app.addLabelEntry("clipexts path")
         app.addLabelEntry("pls path")
         app.addLabelEntry("pls")
-    with app.frame("SRD_frame",row=2):
+    with app.frame("SRD_frame",row=clipFrameRow):
         app.addLabelEntry("clip1")
-    with app.frame("PC_frame",row=2):
+    with app.frame("PC_frame",row=clipFrameRow):
         app.addLabelEntry("clip2")
         app.addLabelEntry("etc")
         app.addLabelEntry("logs")
@@ -160,25 +273,17 @@ with gui("Runner","600x400") as app:
     app.setLabel("clip1", "clip")
     app.setLabel("clip2", "clip")
 
-    # with app.frame("unit_test_4.14.1_flags",row=3):
-    #     app.addCheckBox("-sCompressedUT")
-    #     app.setCheckBox("-sCompressedUT")
-    #     app.addCheckBox("-sframe-verbose")
-    #     app.setCheckBox("-sframe-verbose")
-    #     app.addCheckBox("-sMEMemUnitTestDebug")
-    #     app.setCheckBox("-sMEMemUnitTestDebug")
-    #
-    #     app.addCheckBox("REM:")
-    #     app.setCheckBox("REM:")
-    #     app.addNamedCheckBox("enabled","REM: enabled")
-    #     app.setCheckBox("REM: enabled")
-    #     app.addRadioButton("Rem: enabled options","true")
-    #     app.addRadioButton("Rem: enabled options", "false")
+    app.addHorizontalSeparator()
+
+    app.setFont(14)
+    app.addLabel("ChooseFlagsLabel", "Choose flags")
+    flagsFrameRow = 7
+
+    for stateStr,sectionsList in sections.iteritems():
+        with app.frame(stateStr, row=flagsFrameRow):
+            for section in sectionsList:
+                addSection(app, section)
 
 
-
-
-
-    app.registerEvent(frame)
-    app.setPollTime(250)
+    stateChanged()
     app.go()
